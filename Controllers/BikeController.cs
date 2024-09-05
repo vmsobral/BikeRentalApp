@@ -1,7 +1,9 @@
 using BikeRentalApp.Domain.Entities;
-using BikeRentalApp.Domain.Interfaces;
+using BikeRentalApp.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace BikeRentalApp.Controllers;
 
@@ -17,14 +19,14 @@ public class BikeController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult CreateBike([FromBody] Bike bike)
+    public async Task<IActionResult> CreateBike([FromBody] Bike bike)
     {
         if (bike == null || string.IsNullOrWhiteSpace(bike.Plate))
         {
             return BadRequest("Invalid bike data.");
         }
 
-        var createdBike = _bikeService.AddBike(bike);
+        var createdBike = await _bikeService.CreateBikeAsync(bike);
         return CreatedAtAction(nameof(GetBikeById), new { id = createdBike.Id }, createdBike);
     }
 
@@ -35,7 +37,7 @@ public class BikeController : ControllerBase
         return Ok(bikes);
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:guid}")]
     public IActionResult GetBikeById(Guid id)
     {
         var bike = _bikeService.GetBikeById(id);
@@ -57,27 +59,47 @@ public class BikeController : ControllerBase
         return Ok(bike);
     }
 
-    [HttpPut("plate/{plate}")]
-    public IActionResult UpdatePlate(string plate)
+    [HttpPut("plate/{oldPlate}")]
+    public IActionResult UpdatePlate(string oldPlate, [FromBody] string newPlate)
     {
-        var bike = _bikeService.UpdatePlate(plate);
-        if (bike == null)
+        try
         {
-            return NotFound();
+            _bikeService.UpdatePlate(oldPlate, newPlate);
+            return NoContent();
         }
-
-        return Ok(bike);
+        catch (ArgumentException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An unexpected error occurred.", details = ex.Message });
+        }
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:guid}")]
     public IActionResult DeleteBike(Guid id)
     {
-        var success = _bikeService.DeleteBike(id);
-        if (!success)
+        try
         {
-            return NotFound();
+            _bikeService.DeleteBike(id);
+            return NoContent();
         }
-
-        return NoContent();
+        catch (ArgumentException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An unexpected error occurred.", details = ex.Message });
+        }
     }
 }

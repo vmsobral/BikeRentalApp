@@ -1,5 +1,5 @@
 using BikeRentalApp.Domain.Entities;
-using BikeRentalApp.Domain.Interfaces;
+using BikeRentalApp.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using System;
 

@@ -1,5 +1,5 @@
 using BikeRentalApp.Domain.Entities;
-using BikeRentalApp.Domain.Interfaces;
+using BikeRentalApp.Services.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -7,10 +7,19 @@ namespace BikeRentalApp.Services;
 
 public class DeliveryPersonService : IDeliveryPersonService
 {
-    private readonly List<DeliveryPerson> _deliveryPersons = new();
+    private readonly List<DeliveryPerson> _deliveryPersons;
+
+    public DeliveryPersonService(List<DeliveryPerson> deliveryPersons)
+    {
+        _deliveryPersons = deliveryPersons;
+    }
 
     public DeliveryPerson AddDeliveryPerson(DeliveryPerson deliveryPerson)
     {
+        if (!Enum.IsDefined(typeof(CNHType), deliveryPerson.CnhType))
+        {
+            throw new ArgumentException($"Invalid CNH type: {deliveryPerson.CnhType}");
+        }
         _deliveryPersons.Add(deliveryPerson);
         return deliveryPerson;
     }
@@ -49,30 +58,27 @@ public class DeliveryPersonService : IDeliveryPersonService
             string extension = Path.GetExtension(fileName).ToLower();
             if (extension != ".png" && extension != ".bmp")
             {
-                return false; // Invalid file type
+                return false;
             }
 
             string filePath = Path.Combine(_imageDirectory, fileName);
 
             try
             {
-                // Ensure the directory exists
                 Directory.CreateDirectory(_imageDirectory);
 
-                // Save the file
                 File.WriteAllBytes(filePath, imageBytes);
 
-                // Update the delivery person record with the file name
                 deliveryPerson.CnhImageFileName = fileName;
 
                 return true;
             }
             catch
             {
-                return false; // Error saving the file
+                return false;
             }
         }
-        return false; // Delivery person not found
+        return false;
     }
 
     public bool DeleteDeliveryPerson(Guid id)

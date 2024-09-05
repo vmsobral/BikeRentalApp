@@ -1,22 +1,58 @@
-using BikeRentalApp.Domain.Entities;
-using BikeRentalApp.Domain.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using BikeRentalApp.Domain.Entities;
+using BikeRentalApp.Services.Interfaces;
+using BikeRentalApp.Messaging.Publishers;
 
 namespace BikeRentalApp.Services;
 
 public class BikeService : IBikeService
 {
-    static private readonly List<Bike> _bikes = new();
+    private readonly List<Bike> _bikes;
+    private readonly List<Rental> _rentals;
+    private readonly IPublisher _publisher;
+    private readonly ILogger<BikeService> _logger;
 
-    public Bike AddBike(Bike bike)
+    public BikeService(List<Bike> bikes, List<Rental> rentals, IPublisher publisher, ILogger logger)
     {
+        _bikes = bikes;
+        _rentals = rentals;
+        _publisher = publisher;
+        _logger = logger;
+    }
+
+    public async Task<Bike> CreateBikeAsync(Bike bike)
+    {
+        if (_bikes.Any(b => b.Plate == bike.Plate))
+        {
+            throw new InvalidOperationException("A bike with this plate already exists.");
+        }
+
         bike.Id = Guid.NewGuid();
         _bikes.Add(bike);
+
+        var bikeCreatedEvent = new
+        {
+            bike.Id,
+            bike.Year,
+            bike.Model,
+            bike.Plate
+        };
+
+        try
+        {
+            await _publisher.Publish(JsonSerializer.Serialize(bikeCreatedEvent));
+        }
+        catch
+        {
+
+        }
+
         return bike;
     }
 
-    public List<Bike> GetAllBikes()
+    public IEnumerable<Bike> GetAllBikes()
     {
         return _bikes;
     }
@@ -31,25 +67,36 @@ public class BikeService : IBikeService
         return _bikes.FirstOrDefault(b => b.Plate == plate);
     }
 
-    public Bike UpdatePlate(string updatedplate)
+    public void UpdatePlate(string oldPlate, string newPlate)
     {
-        var bike = _bikes.FirstOrDefault(b => b.Plate == updatedplate);
-        if (bike != null)
+        var bike = _bikes.FirstOrDefault(b => b.Plate == oldPlate);
+        if (bike == null)
         {
-            bike.Plate = updatedplate;
-            return bike;
+            throw new ArgumentException("Bike not found.");
         }
-        return null;
+
+        if (_bikes.Any(b => b.Plate == newPlate))
+        {
+            throw new InvalidOperationException("A bike with the new plate already exists.");
+        }
+
+        bike.Plate = newPlate;
     }
 
-    public bool DeleteBike(Guid id)
+    public void DeleteBike(Guid bikeId)
     {
-        var bike = _bikes.FirstOrDefault(b => b.Id == id);
-        if (bike != null)
+        var bike = _bikes.FirstOrDefault(b => b.Id == bikeId);
+        if (bike == null)
         {
-            _bikes.Remove(bike);
-            return true;
+            throw new ArgumentException("Bike not found.");
         }
-        return false;
+
+        var existingRental = _rentals.Any(r => r.BikeId == bikeId);
+        if (existingRental)
+        {
+            throw new InvalidOperationException("Cannot delete bike with active or past rentals.");
+        }
+
+        _bikes.Remove(bike);
     }
 }

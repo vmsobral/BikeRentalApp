@@ -1,6 +1,6 @@
 using BikeRentalApp.Domain.Entities;
 
-namespace BikeRentalApp.Domain.Interfaces;
+namespace BikeRentalApp.Services.Interfaces;
 
 public interface IDeliveryPersonService
 {
