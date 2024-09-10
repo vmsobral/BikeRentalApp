@@ -4,10 +4,10 @@ namespace BikeRentalApp.Services.Interfaces;
 
 public interface IDeliveryPersonService
 {
-    DeliveryPerson AddDeliveryPerson(DeliveryPerson deliveryPerson);
-    DeliveryPerson GetDeliveryPersonById(Guid id);
-    DeliveryPerson GetDeliveryPersonByCnpj(string cnpj);
-    DeliveryPerson UpdateDeliveryPerson(DeliveryPerson deliveryPerson);
-    bool SaveCnhImage(Guid id, byte[] imageBytes, string fileName);
-    bool DeleteDeliveryPerson(Guid id);
+    Task<DeliveryPerson> AddDeliveryPersonAsync(DeliveryPerson deliveryPerson);
+    Task<DeliveryPerson> GetDeliveryPersonByIdAsync(Guid id);
+    Task<DeliveryPerson> GetDeliveryPersonByCnpjAsync(string cnpj);
+    Task UpdateDeliveryPersonAsync(DeliveryPerson deliveryPerson);
+    Task SaveCnhImageAsync(Guid id, byte[] imageBytes, string fileName);
+    Task DeleteDeliveryPersonAsync(Guid id);
 }

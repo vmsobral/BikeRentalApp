@@ -1,6 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
+using System.Threading.Tasks;
+
+using Microsoft.EntityFrameworkCore;
+
+using BikeRentalApp.Database;
 using BikeRentalApp.Domain.Entities;
 using BikeRentalApp.Services.Interfaces;
 using BikeRentalApp.Messaging.Publishers;
@@ -9,94 +14,90 @@ namespace BikeRentalApp.Services;
 
 public class BikeService : IBikeService
 {
-    private readonly List<Bike> _bikes;
-    private readonly List<Rental> _rentals;
+    private readonly BikeRentalDbContext _context;
     private readonly IPublisher _publisher;
     private readonly ILogger<BikeService> _logger;
 
-    public BikeService(List<Bike> bikes, List<Rental> rentals, IPublisher publisher, ILogger logger)
+    public BikeService(BikeRentalDbContext context, IPublisher publisher, ILogger<BikeService> logger)
     {
-        _bikes = bikes;
-        _rentals = rentals;
+        _context = context;
         _publisher = publisher;
         _logger = logger;
     }
 
     public async Task<Bike> CreateBikeAsync(Bike bike)
     {
-        if (_bikes.Any(b => b.Plate == bike.Plate))
+        if (await _context.Bikes.AnyAsync(b => b.LicensePlate == bike.LicensePlate))
         {
-            throw new InvalidOperationException("A bike with this plate already exists.");
+            throw new InvalidOperationException("A bike with the same license plate already exists.");
         }
 
         bike.Id = Guid.NewGuid();
-        _bikes.Add(bike);
-
-        var bikeCreatedEvent = new
-        {
-            bike.Id,
-            bike.Year,
-            bike.Model,
-            bike.Plate
-        };
-
-        try
-        {
-            await _publisher.Publish(JsonSerializer.Serialize(bikeCreatedEvent));
-        }
-        catch
-        {
-
-        }
+        _context.Bikes.Add(bike);
+        await PublishBikeCreatedEvent(bike);
+        await _context.SaveChangesAsync();
 
         return bike;
     }
 
-    public IEnumerable<Bike> GetAllBikes()
-    {
-        return _bikes;
+    private async Task PublishBikeCreatedEvent(Bike bike) {
+        try
+        {
+            await _publisher.PublishBikeCreatedEvent(bike);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Couldn't publish Bike Creation event", ex);
+        }
     }
 
-    public Bike GetBikeById(Guid id)
+    public async Task<IEnumerable<Bike>> GetAllBikesAsync()
     {
-        return _bikes.FirstOrDefault(b => b.Id == id);
+        return await _context.Bikes.ToListAsync();
     }
 
-    public Bike GetBikeByPlate(string plate)
+    public async Task<Bike> GetBikeByIdAsync(Guid bikeId)
     {
-        return _bikes.FirstOrDefault(b => b.Plate == plate);
+        return await _context.Bikes.FindAsync(bikeId);
     }
 
-    public void UpdatePlate(string oldPlate, string newPlate)
+    public async Task<Bike> GetBikeByLicensePlateAsync(string plate)
     {
-        var bike = _bikes.FirstOrDefault(b => b.Plate == oldPlate);
+        return await _context.Bikes
+                .FirstOrDefaultAsync(b => b.LicensePlate == plate);
+    }
+
+    public async Task UpdateLicensePlateAsync(string oldPlate, string newPlate)
+    {
+        var bike = await _context.Bikes.FirstOrDefaultAsync(b => b.LicensePlate == oldPlate);
+        if (bike == null)
+        {
+            throw new ArgumentException($"Bike with license plate ${oldPlate} not found.");
+        }
+
+        if (await _context.Bikes.AnyAsync(b => b.LicensePlate == newPlate))
+        {
+            throw new InvalidOperationException($"A bike with license plate ${newPlate} already exists.");
+        }
+
+        bike.LicensePlate = newPlate;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteBikeAsync(Guid bikeId)
+    {
+        var bike = await _context.Bikes.FindAsync(bikeId);
         if (bike == null)
         {
             throw new ArgumentException("Bike not found.");
         }
 
-        if (_bikes.Any(b => b.Plate == newPlate))
-        {
-            throw new InvalidOperationException("A bike with the new plate already exists.");
-        }
-
-        bike.Plate = newPlate;
-    }
-
-    public void DeleteBike(Guid bikeId)
-    {
-        var bike = _bikes.FirstOrDefault(b => b.Id == bikeId);
-        if (bike == null)
-        {
-            throw new ArgumentException("Bike not found.");
-        }
-
-        var existingRental = _rentals.Any(r => r.BikeId == bikeId);
-        if (existingRental)
+        if (await _context.Rentals.AnyAsync(r => r.BikeId == bikeId))
         {
             throw new InvalidOperationException("Cannot delete bike with active or past rentals.");
         }
 
-        _bikes.Remove(bike);
+        _context.Bikes.Remove(bike);
+        await _context.SaveChangesAsync();
     }
 }

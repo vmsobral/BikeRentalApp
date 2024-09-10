@@ -17,21 +17,21 @@ public class DeliveryPersonController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult CreateDeliveryPerson([FromBody] DeliveryPerson deliveryPerson)
+    public async Task<IActionResult> CreateDeliveryPerson([FromBody] DeliveryPerson deliveryPerson)
     {
         if (deliveryPerson == null || string.IsNullOrWhiteSpace(deliveryPerson.Cnpj))
         {
             return BadRequest("Invalid delivery person data.");
         }
 
-        var createdDeliveryPerson = _deliveryPersonService.AddDeliveryPerson(deliveryPerson);
+        var createdDeliveryPerson = await _deliveryPersonService.AddDeliveryPersonAsync(deliveryPerson);
         return CreatedAtAction(nameof(GetDeliveryPersonById), new { id = createdDeliveryPerson.Id }, createdDeliveryPerson);
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetDeliveryPersonById(Guid id)
+    public async Task<IActionResult> GetDeliveryPersonById(Guid id)
     {
-        var deliveryPerson = _deliveryPersonService.GetDeliveryPersonById(id);
+        var deliveryPerson = await _deliveryPersonService.GetDeliveryPersonByIdAsync(id);
         if (deliveryPerson == null)
         {
             return NotFound();
@@ -40,9 +40,9 @@ public class DeliveryPersonController : ControllerBase
     }
 
     [HttpGet("cnpj/{cnpj}")]
-    public IActionResult GetDeliveryPersonByCnpj(string cnpj)
+    public async Task<IActionResult> GetDeliveryPersonByCnpj(string cnpj)
     {
-        var deliveryPerson = _deliveryPersonService.GetDeliveryPersonByCnpj(cnpj);
+        var deliveryPerson = await _deliveryPersonService.GetDeliveryPersonByCnpjAsync(cnpj);
         if (deliveryPerson == null)
         {
             return NotFound();
@@ -51,20 +51,15 @@ public class DeliveryPersonController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public IActionResult UpdateDeliveryPerson(Guid id, [FromBody] DeliveryPerson updatedDeliveryPerson)
+    public async Task<IActionResult> UpdateDeliveryPerson(Guid id, [FromBody] DeliveryPerson updatedDeliveryPerson)
     {
         if (updatedDeliveryPerson == null || id != updatedDeliveryPerson.Id)
         {
             return BadRequest("Invalid delivery person data.");
         }
 
-        var deliveryPerson = _deliveryPersonService.UpdateDeliveryPerson(updatedDeliveryPerson);
-        if (deliveryPerson == null)
-        {
-            return NotFound();
-        }
-
-        return Ok(deliveryPerson);
+        await _deliveryPersonService.UpdateDeliveryPersonAsync(updatedDeliveryPerson);
+        return NoContent();
     }
 
     [HttpPost("{id}/cnh-image")]
@@ -87,12 +82,8 @@ public class DeliveryPersonController : ControllerBase
             {
                 await file.CopyToAsync(memoryStream);
                 var imageBytes = memoryStream.ToArray();
-                var success = _deliveryPersonService.SaveCnhImage(id, imageBytes, file.FileName);
+                await _deliveryPersonService.SaveCnhImageAsync(id, imageBytes, file.FileName);
                 
-                if (success)
-                {
-                    return NoContent();
-                }
                 return NotFound("Delivery person not found.");
             }
         }
@@ -100,17 +91,14 @@ public class DeliveryPersonController : ControllerBase
         {
             return StatusCode(500, "Error saving the file.");
         }
+
+        return NoContent();
     }
 
     [HttpDelete("{id}")]
-    public IActionResult DeleteDeliveryPerson(Guid id)
+    public async Task<IActionResult> DeleteDeliveryPerson(Guid id)
     {
-        var success = _deliveryPersonService.DeleteDeliveryPerson(id);
-        if (!success)
-        {
-            return NotFound();
-        }
-
+        await _deliveryPersonService.DeleteDeliveryPersonAsync(id);
         return NoContent();
     }
 }

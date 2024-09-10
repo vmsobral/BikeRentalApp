@@ -4,18 +4,10 @@ using BikeRentalApp.Services.Interfaces;
 using BikeRentalApp.Messaging;
 using BikeRentalApp.Messaging.Consumers;
 using BikeRentalApp.Messaging.Publishers;
+using BikeRentalApp.Database;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Data Structures
-var bikes = new List<Bike>();
-builder.Services.AddSingleton(bikes);
-
-var deliveryPersons = new List<DeliveryPerson>();
-builder.Services.AddSingleton(deliveryPersons);
-
-var rentals = new List<Rental>();
-builder.Services.AddSingleton(rentals);
 
 // Services
 builder.Services.AddScoped<IBikeService, BikeService>();
@@ -23,10 +15,10 @@ builder.Services.AddScoped<IDeliveryPersonService, DeliveryPersonService>();
 builder.Services.AddScoped<IRentalService, RentalService>();
 
 // Database
-builder.Services.AddDbContext<BikeRentalContext>(options =>
+builder.Services.AddDbContext<BikeRentalDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// RabbitMQ
+// Messaging
 var rabbitMQSettings = builder.Configuration.GetSection("RabbitMQ").Get<RabbitMQSettings>();
 builder.Services.AddSingleton(rabbitMQSettings);
 builder.Services.AddSingleton<IPublisher, RabbitMQPublisher>();
@@ -37,6 +29,8 @@ builder.Services.AddHostedService<BikeCreatedConsumer>();
 builder.Services.AddControllers();
 
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionMiddleware>();
 
 app.MapControllers();
 

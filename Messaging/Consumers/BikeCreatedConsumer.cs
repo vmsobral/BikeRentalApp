@@ -2,7 +2,6 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Text;
 using System.Text.Json;
-using BikeRentalApp.Services.Interfaces;
 using BikeRentalApp.Domain.Entities;
 
 namespace BikeRentalApp.Messaging.Consumers;
@@ -11,17 +10,16 @@ public class BikeCreatedConsumer : BackgroundService
 {
     private readonly IConnection _connection;
     private readonly IModel _channel;
-    private readonly IBikeService _bikeService;
     private readonly ILogger<BikeCreatedConsumer> _logger;
     private readonly string _queueName;
 
-    public BikeCreatedConsumer(RabbitMQSettings settings, IBikeService bikeService, ILogger<BikeCreatedConsumer> logger)
+    public BikeCreatedConsumer(RabbitMQSettings settings, ILogger<BikeCreatedConsumer> logger)
     {
         _queueName = settings.QueueName;
 
         var factory = new ConnectionFactory()
         {
-            HostName = settings.Host,
+            HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? settings.Host,
             Port = settings.Port,
             UserName = settings.UserName,
             Password = settings.Password,
@@ -36,7 +34,6 @@ public class BikeCreatedConsumer : BackgroundService
                                 autoDelete: false,
                                 arguments: null);
 
-        _bikeService = bikeService;
         _logger = logger;
     }
 

@@ -1,6 +1,8 @@
+using BikeRentalApp.Domain.Entities;
+
 namespace BikeRentalApp.Messaging.Publishers;
 
 public interface IPublisher
 {
-    Task Publish(string message);
+    Task PublishBikeCreatedEvent(Bike bike);
 }

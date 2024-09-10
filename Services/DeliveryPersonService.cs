@@ -1,94 +1,125 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+
+using Microsoft.EntityFrameworkCore;
+
+using BikeRentalApp.Database;
 using BikeRentalApp.Domain.Entities;
 using BikeRentalApp.Services.Interfaces;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace BikeRentalApp.Services;
 
 public class DeliveryPersonService : IDeliveryPersonService
 {
-    private readonly List<DeliveryPerson> _deliveryPersons;
+    private readonly BikeRentalDbContext _context;
 
-    public DeliveryPersonService(List<DeliveryPerson> deliveryPersons)
+    public DeliveryPersonService(BikeRentalDbContext context)
     {
-        _deliveryPersons = deliveryPersons;
+        _context = context;
     }
 
-    public DeliveryPerson AddDeliveryPerson(DeliveryPerson deliveryPerson)
+    public async Task<DeliveryPerson> AddDeliveryPersonAsync(DeliveryPerson deliveryPerson)
     {
         if (!Enum.IsDefined(typeof(CNHType), deliveryPerson.CnhType))
         {
             throw new ArgumentException($"Invalid CNH type: {deliveryPerson.CnhType}");
         }
-        _deliveryPersons.Add(deliveryPerson);
+
+        if (await _context.DeliveryPersons.AnyAsync(dp => dp.CnhNumber == deliveryPerson.CnhNumber))
+        {
+            throw new ArgumentException("A delivery person with the same CNH number already exists.");
+        }
+
+        if (await _context.DeliveryPersons.AnyAsync(dp => dp.Cnpj == deliveryPerson.Cnpj))
+        {
+            throw new ArgumentException("A delivery person with the same CNPJ already exists.");
+        }
+
+        deliveryPerson.Id = Guid.NewGuid();
+        _context.DeliveryPersons.Add(deliveryPerson);
+        await _context.SaveChangesAsync();
+
         return deliveryPerson;
     }
 
-    public DeliveryPerson GetDeliveryPersonById(Guid id)
+    public async Task<DeliveryPerson> GetDeliveryPersonByIdAsync(Guid id)
     {
-        return _deliveryPersons.FirstOrDefault(dp => dp.Id == id);
+        return await _context.DeliveryPersons.FindAsync(id);
     }
 
-    public DeliveryPerson GetDeliveryPersonByCnpj(string cnpj)
+    public async Task<DeliveryPerson> GetDeliveryPersonByCnpjAsync(string cnpj)
     {
-        return _deliveryPersons.FirstOrDefault(dp => dp.Cnpj == cnpj);
+        return await _context.DeliveryPersons
+                .FirstOrDefaultAsync(dp => dp.Cnpj == cnpj);
     }
 
-    public DeliveryPerson UpdateDeliveryPerson(DeliveryPerson updatedDeliveryPerson)
+    public async Task<DeliveryPerson> GetDeliveryPersonByCnhNumberAsync(string cnhNumber)
     {
-        var deliveryPerson = _deliveryPersons.FirstOrDefault(dp => dp.Id == updatedDeliveryPerson.Id);
-        if (deliveryPerson != null)
+        return await _context.DeliveryPersons
+                .FirstOrDefaultAsync(dp => dp.CnhNumber == cnhNumber);
+    }
+
+    public async Task UpdateDeliveryPersonAsync(DeliveryPerson updatedDeliveryPerson)
+    {
+        var id = updatedDeliveryPerson.Id;
+        var deliveryPerson = await _context.DeliveryPersons.FindAsync(id);
+        if (deliveryPerson == null)
         {
-            deliveryPerson.Name = updatedDeliveryPerson.Name;
-            deliveryPerson.Cnpj = updatedDeliveryPerson.Cnpj;
-            deliveryPerson.BirthDate = updatedDeliveryPerson.BirthDate;
-            deliveryPerson.CnhNumber = updatedDeliveryPerson.CnhNumber;
-            deliveryPerson.CnhType = updatedDeliveryPerson.CnhType;
-            return deliveryPerson;
+            throw new ArgumentException($"Delivery Person with id ${id} not found.");
         }
-        return null;
+
+        deliveryPerson.Name = updatedDeliveryPerson.Name;
+        deliveryPerson.Cnpj = updatedDeliveryPerson.Cnpj;
+        deliveryPerson.BirthDate = updatedDeliveryPerson.BirthDate;
+        deliveryPerson.CnhNumber = updatedDeliveryPerson.CnhNumber;
+        deliveryPerson.CnhType = updatedDeliveryPerson.CnhType;
+
+        await _context.SaveChangesAsync();
     }
 
-    public bool SaveCnhImage(Guid id, byte[] imageBytes, string fileName)
+    public async Task SaveCnhImageAsync(Guid id, byte[] imageBytes, string fileName)
     {
-        var _imageDirectory = "cnh-images";
-        var deliveryPerson = _deliveryPersons.FirstOrDefault(dp => dp.Id == id);
-        if (deliveryPerson != null)
+        var deliveryPerson = await _context.DeliveryPersons.FindAsync(id);
+        if (deliveryPerson == null)
         {
-            string extension = Path.GetExtension(fileName).ToLower();
-            if (extension != ".png" && extension != ".bmp")
-            {
-                return false;
-            }
-
-            string filePath = Path.Combine(_imageDirectory, fileName);
-
-            try
-            {
-                Directory.CreateDirectory(_imageDirectory);
-
-                File.WriteAllBytes(filePath, imageBytes);
-
-                deliveryPerson.CnhImageFileName = fileName;
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            throw new ArgumentException($"Delivery Person with id ${id} not found.");
         }
-        return false;
+        
+        string extension = Path.GetExtension(fileName).ToLower();
+        if (extension != ".png" && extension != ".bmp")
+        {
+            throw new ArgumentException("CNH image file must be on PNG or BMP format.");
+        }
+
+        var _imageDirectory = "cnh-images"; //TODO: put on environment var
+        string newFileName = $"{id}{extension}";
+        string filePath = Path.Combine(_imageDirectory, newFileName);
+
+        try
+        {
+            Directory.CreateDirectory(_imageDirectory);
+            File.WriteAllBytes(filePath, imageBytes);
+            deliveryPerson.CnhImagePath = filePath;
+        }
+        catch
+        {
+            throw new IOException("Couldn't save CNH image file");
+        }
+
+        await _context.SaveChangesAsync();
     }
 
-    public bool DeleteDeliveryPerson(Guid id)
+    public async Task DeleteDeliveryPersonAsync(Guid id)
     {
-        var deliveryPerson = _deliveryPersons.FirstOrDefault(dp => dp.Id == id);
-        if (deliveryPerson != null)
+        var deliveryPerson = await _context.DeliveryPersons.FindAsync(id);
+        if (deliveryPerson == null)
         {
-            _deliveryPersons.Remove(deliveryPerson);
-            return true;
+            throw new ArgumentException($"Delivery Person with id ${id} not found.");
         }
-        return false;
+
+        _context.DeliveryPersons.Remove(deliveryPerson);
+        await _context.SaveChangesAsync();
     }
 }

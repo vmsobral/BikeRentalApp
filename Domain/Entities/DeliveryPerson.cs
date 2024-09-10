@@ -1,5 +1,3 @@
-using System;
-
 namespace BikeRentalApp.Domain.Entities;
 
 public class DeliveryPerson
@@ -10,7 +8,10 @@ public class DeliveryPerson
     public DateTime BirthDate { get; set; }
     public string CnhNumber { get; set; }
     public CNHType CnhType { get; set; }
-    public string CnhImageFileName { get; set; }
+    public string CnhImagePath { get; set; }
+
+    // Foreign keys
+    public ICollection<Rental> Rentals { get; set; }
 }
 
 public enum CNHType

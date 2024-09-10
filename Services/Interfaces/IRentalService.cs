@@ -5,7 +5,7 @@ namespace BikeRentalApp.Services.Interfaces;
 
 public interface IRentalService
 {
-    Rental CreateRental(Rental rental);
-    Rental GetRentalById(Guid id);
-    Rental ReturnBike(Guid rentalId, DateTime returnDate);
+    Task<Rental> CreateRentalAsync(Rental rental);
+    Task<Rental> GetRentalByIdAsync(Guid id);
+    Task<Rental> ReturnBikeAsync(Guid rentalId, DateTime returnDate);
 }

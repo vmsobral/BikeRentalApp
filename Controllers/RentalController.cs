@@ -17,9 +17,9 @@ public class RentalController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult CreateRental([FromBody] Rental rental)
+    public async Task<IActionResult> CreateRental([FromBody] Rental rental)
     {
-        var createdRental = _rentalService.CreateRental(rental);
+        var createdRental = await _rentalService.CreateRentalAsync(rental);
         if (createdRental == null)
         {
             return BadRequest("Invalid rental data.");
@@ -28,9 +28,9 @@ public class RentalController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetRentalById(Guid id)
+    public async Task<IActionResult> GetRentalById(Guid id)
     {
-        var rental = _rentalService.GetRentalById(id);
+        var rental = await _rentalService.GetRentalByIdAsync(id);
         if (rental == null)
         {
             return NotFound();
@@ -39,9 +39,9 @@ public class RentalController : ControllerBase
     }
 
     [HttpPost("{id}/return")]
-    public IActionResult ReturnBike(Guid id, [FromBody] DateTime returnDate)
+    public async Task<IActionResult> ReturnBike(Guid id, [FromBody] DateTime returnDate)
     {
-        var rental = _rentalService.ReturnBike(id, returnDate);
+        var rental = await _rentalService.ReturnBikeAsync(id, returnDate);
         if (rental == null)
         {
             return BadRequest("Invalid return data.");

@@ -1,5 +1,11 @@
 using System.Text;
+using System.Threading.Tasks;
+
 using RabbitMQ.Client;
+
+using Newtonsoft.Json;
+
+using BikeRentalApp.Domain.Entities;
 
 namespace BikeRentalApp.Messaging.Publishers;
 public class RabbitMQPublisher : IPublisher, IDisposable
@@ -27,8 +33,9 @@ public class RabbitMQPublisher : IPublisher, IDisposable
         _channel.ExchangeDeclare(_settings.ExchangeName, ExchangeType.Direct);
     }
 
-    public Task Publish(string message)
+    public async Task PublishBikeCreatedEvent(Bike bike)
     {
+        var message = JsonConvert.SerializeObject(bike);
         var body = Encoding.UTF8.GetBytes(message);
         _channel.BasicPublish(exchange: _settings.ExchangeName,
                               routingKey: _settings.QueueName,

@@ -1,5 +1,6 @@
 using BikeRentalApp.Domain.Entities;
 using BikeRentalApp.Services.Interfaces;
+using BikeRentalApp.Database;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,45 +9,51 @@ namespace BikeRentalApp.Services;
 
 public class RentalService : IRentalService
 {
-    private readonly List<Rental> _rentals = new();
-    private readonly List<Bike> _bikes;
-    private readonly List<DeliveryPerson> _deliveryPersons;
+    private readonly BikeRentalDbContext _context;
 
-    public RentalService(List<Bike> bikes, List<DeliveryPerson> deliveryPersons)
+    public RentalService(BikeRentalDbContext context)
     {
-        _bikes = bikes;
-        _deliveryPersons = deliveryPersons;
+        _context = context;
     }
 
-    public Rental CreateRental(Rental rental)
+    public async Task<Rental> CreateRentalAsync(Rental rental)
     {
-        var bike = _bikes.FirstOrDefault(b => b.Id == rental.BikeId);
-        var deliveryPerson = _deliveryPersons.FirstOrDefault(dp => dp.Id == rental.DeliveryPersonId && dp.CnhType == CNHType.A);
-
-        if (bike == null || deliveryPerson == null)
+        var bikeId = rental.BikeId;
+        var bike = await _context.Bikes.FindAsync(bikeId);
+        if (bike == null)
         {
-            return null;
+            throw new ArgumentException($"No bike with id ${bikeId} found.");
+        }
+
+        var dpId = rental.DeliveryPersonId;
+        var deliveryPerson = await _context.DeliveryPersons.FindAsync(dpId);
+        if (deliveryPerson == null)
+        {
+            throw new ArgumentException($"No delivery person with id ${dpId} found.");
         }
 
         rental.Id = Guid.NewGuid();
+        // This could be on frontend or different endpoint to show info to user
         rental.StartDate = DateTime.UtcNow.AddDays(1);
         rental.TotalCost = CalculateRentalCost(rental.ExpectedEndDate - rental.StartDate);
 
-        _rentals.Add(rental);
+        _context.Rentals.Add(rental);
+        await _context.SaveChangesAsync();
+
         return rental;
     }
 
-    public Rental GetRentalById(Guid id)
+    public async Task<Rental> GetRentalByIdAsync(Guid id)
     {
-        return _rentals.FirstOrDefault(r => r.Id == id);
+        return await _context.Rentals.FindAsync(id);
     }
 
-    public Rental ReturnBike(Guid rentalId, DateTime returnDate)
+    public async Task<Rental> ReturnBikeAsync(Guid rentalId, DateTime returnDate)
     {
-        var rental = _rentals.FirstOrDefault(r => r.Id == rentalId);
+        var rental = await _context.Rentals.FindAsync(rentalId);
         if (rental == null || rental.IsReturned)
         {
-            return null;
+            throw new ArgumentException($"No active rental with id ${rentalId} found.");
         }
 
         rental.EndDate = returnDate;
@@ -61,6 +68,7 @@ public class RentalService : IRentalService
             rental.TotalCost += CalculateLateReturnPenalty(returnDate - rental.ExpectedEndDate);
         }
 
+        await _context.SaveChangesAsync();
         return rental;
     }
 

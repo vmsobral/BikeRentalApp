@@ -21,7 +21,7 @@ public class BikeController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateBike([FromBody] Bike bike)
     {
-        if (bike == null || string.IsNullOrWhiteSpace(bike.Plate))
+        if (bike == null || string.IsNullOrWhiteSpace(bike.LicensePlate))
         {
             return BadRequest("Invalid bike data.");
         }
@@ -31,16 +31,16 @@ public class BikeController : ControllerBase
     }
 
     [HttpGet]
-    public IActionResult GetAllBikes()
+    public async Task<IActionResult> GetAllBikes()
     {
-        var bikes = _bikeService.GetAllBikes();
+        var bikes = await _bikeService.GetAllBikesAsync();
         return Ok(bikes);
     }
 
     [HttpGet("{id:guid}")]
-    public IActionResult GetBikeById(Guid id)
+    public async Task<IActionResult> GetBikeById(Guid id)
     {
-        var bike = _bikeService.GetBikeById(id);
+        var bike = await _bikeService.GetBikeByIdAsync(id);
         if (bike == null)
         {
             return NotFound();
@@ -49,9 +49,9 @@ public class BikeController : ControllerBase
     }
 
     [HttpGet("plate/{plate}")]
-    public IActionResult GetBikeByPlate(string plate)
+    public async Task<IActionResult> GetBikeByPlate(string plate)
     {
-        var bike = _bikeService.GetBikeByPlate(plate);
+        var bike = await _bikeService.GetBikeByLicensePlateAsync(plate);
         if (bike == null)
         {
             return NotFound();
@@ -60,46 +60,16 @@ public class BikeController : ControllerBase
     }
 
     [HttpPut("plate/{oldPlate}")]
-    public IActionResult UpdatePlate(string oldPlate, [FromBody] string newPlate)
+    public async Task<IActionResult> UpdatePlate(string oldPlate, [FromBody] string newPlate)
     {
-        try
-        {
-            _bikeService.UpdatePlate(oldPlate, newPlate);
-            return NoContent();
-        }
-        catch (ArgumentException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "An unexpected error occurred.", details = ex.Message });
-        }
+        await _bikeService.UpdateLicensePlateAsync(oldPlate, newPlate);
+        return NoContent();
     }
 
     [HttpDelete("{id:guid}")]
-    public IActionResult DeleteBike(Guid id)
+    public async Task<IActionResult> DeleteBike(Guid id)
     {
-        try
-        {
-            _bikeService.DeleteBike(id);
-            return NoContent();
-        }
-        catch (ArgumentException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "An unexpected error occurred.", details = ex.Message });
-        }
+        await _bikeService.DeleteBikeAsync(id);
+        return NoContent();
     }
 }
